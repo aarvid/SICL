@@ -120,13 +120,10 @@
   (load-file "../../Iteration/do-dostar-defmacro.lisp" environment)
   ;; Load a file containing the definition of the macro
   ;; WITH-OPEN-STREAM.
-  (load-file "../../Stream/with-open-stream-defmacro.lisp" environment)
+;;  (load-file "../../Stream/with-open-stream-defmacro.lisp" environment)
   ;; Load a file containing the definition of the macro WITH-SLOTS.
   (load-file "../../CLOS/with-slots-defmacro.lisp" environment)
   ;; Load a file containing the definition of the macro WITH-ACCESSORS.
   (load-file "../../CLOS/with-accessors-defmacro.lisp" environment)
-  ;; Import host definition of CLASS-PROTOTYPE.
-  (setf (sicl-env:fdefinition 'sicl-clos::class-prototype environment)
-	#'closer-mop:class-prototype)
   ;; Load a file containing the definition of the macro DEFMETHOD
   (load-file "../../CLOS/defmethod-defmacro.lisp" environment))
