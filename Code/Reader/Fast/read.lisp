@@ -490,7 +490,18 @@
 	   (clrhash (macro-functions to))
 	   (loop for key being each hash-key of (macro-functions from)
 		 using (hash-value value)
-		 do (setf (gethash key (macro-functions to)) value))))
+		 do (setf (gethash key (macro-functions to)) value))
+           (clrhash (macro-dispatch-tables to))
+	   (loop for disp-char being each hash-key of (macro-dispatch-tables from)
+		 using (hash-value from-dispatch-table)
+		 do (setf (gethash disp-char (macro-dispatch-tables to))
+                          (if (hash-table-p from-dispatch-table)
+                              (let ((to-dispatch-table (make-hash-table)))
+                                (loop for sub-char being each hash-key of from-dispatch-table
+                                        using (hash-value disp-fun)
+                                      do (setf (gethash sub-char to-dispatch-table) disp-fun))
+                                to-dispatch-table)
+                              from-dispatch-table)))))
     (if (null to-readtable)
 	(let* ((ascii-syntax-types
 		(copy-seq (ascii-syntax-types from-readtable)))
@@ -1673,7 +1684,7 @@
             (caar *expression-stack*))))
 
 
-(defparameter *initial-readtable* (Copy-readtable *standard-readtable*))
+(defparameter *initial-readtable* (copy-readtable *standard-readtable*))
 
 (setf *readtable* *initial-readtable*)
 

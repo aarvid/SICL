@@ -18,3 +18,4 @@
 *.out
 *.snm
 *.nav
+/Code/Reader/Fast/junk.lisp
