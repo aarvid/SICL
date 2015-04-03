@@ -1,4 +1,4 @@
-;;; This code is in the public domain.
+;; This code is in the public domain.
 ;;;
 ;;; The preliminary name for this project is SICL, which doesn't stand
 ;;; for anything in particular.  Pronounce it like "sickle".
@@ -180,10 +180,6 @@
   ;; define it
   )
 
-(defun sharpsign-function (stream char)
-  (declare (ignore stream char))
-  ;; define it
-  )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -198,9 +194,28 @@
 	     "The ~a directive does not take a numeric parameter"
 	     (which-directive condition)))))
 
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
-;;; Sharpsign single quote
+;;; Sharpsign is illegal according to hyperspec 2.4.8
+
+(defun sharp-illegal (stream sub-char param)
+  (declare (ignore stream param))
+  (error "illegal sharp macro character: ~S" sub-char))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
+;;; Sharpsign not implemented
+
+(defun sharp-not-implemented (stream sub-char param)
+  (declare (ignore stream param))
+  (error "sharp macro character not implemented: ~S" sub-char))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
+;;; Sharpsign single quote - function abbreviation
 
 (defun sharpsign-single-quote-function (stream char parameter)
   (declare (ignore char))
@@ -213,7 +228,7 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
-;;; Sharpsign backslash
+;;; Sharpsign backslash - character object
 
 (defparameter *character-names*
   (let ((table (make-hash-table :test #'equal)))
@@ -266,7 +281,7 @@
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
-;;; Sharpsign left parenthesis
+;;; Sharpsign left parenthesis -- simple vector
 
 (defun sharpsign-left-parenthesis (stream char parameter)
   (if (null parameter)
@@ -297,6 +312,77 @@
 			       (unmatched-right-parenthesis ()
 				 (loop-finish)))))
 	vector)))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
+;;; Sharpsign colon -- uninterned symbol
+
+(defun sharpsign-colon (stream char parameter)
+  (sharp-not-implemented stream char parameter))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
+;;; Sharpsign asterisk -- bit-vector
+
+(defun sharpsign-asterisk (stream char parameter)
+  (sharp-not-implemented stream char parameter))
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
+;;; Sharpsign vertical bar -- balanced comment         
+
+(defun sharpsign-vertical-bar (stream char parameter)
+  (sharp-not-implemented stream char parameter))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
+;;; Sharpsign A, a -- array
+(defun sharpsign-a (stream char parameter)
+  (sharp-not-implemented stream char parameter))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
+;;; Sharpsign B, b -- binary rational
+(defun sharpsign-b (stream char parameter)
+  (sharp-not-implemented stream char parameter))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
+;;; Sharpsign C, c -- complex number
+(defun sharpsign-c (stream char parameter)
+  (sharp-not-implemented stream char parameter))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
+;;; Sharpsign O, o -- octal rational
+(defun sharpsign-d (stream char parameter)
+  (sharp-not-implemented stream char parameter))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
+;;; Sharpsign P, p -- pathname
+(defun sharpsign-p (stream char parameter)
+  (sharp-not-implemented stream char parameter))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
+;;; Sharpsign R, r -- radix-n rational
+(defun sharpsign-r (stream char parameter)
+  (sharp-not-implemented stream char parameter))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
+;;; Sharpsign S, s -- structure
+(defun sharpsign-s (stream char parameter)
+  (sharp-not-implemented stream char parameter))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;
+;;; Sharpsign X, x -- hexadecimal rational
+(defun sharpsign-x (stream char parameter)
+  (sharp-not-implemented stream char parameter))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -575,7 +661,6 @@
 	(#\` . backquote-function)
 	(#\, . comma-function)))
 
-(set-macro-character #\# #'sharpsign-function t *standard-readtable*)
 
 
 (defun make-dispatch-macro-character (char &optional (non-terminating-p nil)
@@ -644,15 +729,11 @@
     (setf (gethash sub-char dispatch-table) new-function))
   t)
 
-(defun sharp-illegal (stream sub-char param)
-  (declare (ignore stream param))
-  (error "illegal sharp macro character: ~S" sub-char))
 
-(defun sharp-not-implemented (stream sub-char param)
-  (declare (ignore stream param))
-  (error "sharp macro character not implemented: ~S" sub-char))
 
 (make-dispatch-macro-character #\# t *standard-readtable*)
+
+;; see hyperspec 2.4.8
 (mapc (lambda (c)
         (set-dispatch-macro-character #\# c #'sharp-illegal *standard-readtable*))
       '(#\Newline #\Backspace #\Tab #\Linefeed #\Page #\Return #\Space #\< #\)))
@@ -666,17 +747,17 @@
                               *standard-readtable*)
 
 ;; * bit-vector
-(set-dispatch-macro-character #\# #\* #'sharp-not-implemented *standard-readtable*)
+(set-dispatch-macro-character #\# #\* #'sharpsign-asterisk *standard-readtable*)
 
 ;; : uninterned symbol
-(set-dispatch-macro-character #\# #\: #'sharp-not-implemented *standard-readtable*)
+(set-dispatch-macro-character #\# #\: #'sharpsign-colon *standard-readtable*)
 
 ;; \ character object
 (set-dispatch-macro-character #\# #\\ #'sharpsign-backslash-function
                               *standard-readtable*)
 
 ;; | balanced comment         
-(set-dispatch-macro-character #\# #\| #'sharp-not-implemented *standard-readtable*)
+(set-dispatch-macro-character #\# #\| #'sharpsign-vertical-bar *standard-readtable*)
 
 ;; = labels following object
 (set-dispatch-macro-character #\# #\= #'sharp-not-implemented *standard-readtable*)
@@ -694,28 +775,28 @@
 (set-dispatch-macro-character #\# #\. #'sharp-not-implemented *standard-readtable*)
 
 ;; A, a array
-(set-dispatch-macro-character #\# #\A #'sharp-not-implemented *standard-readtable*)
+(set-dispatch-macro-character #\# #\A #'sharpsign-a *standard-readtable*)
 
 ;; B, b binary rational
-(set-dispatch-macro-character #\# #\B #'sharp-not-implemented *standard-readtable*)
+(set-dispatch-macro-character #\# #\B #'sharpsign-b *standard-readtable*)
 
 ;; C, c complex number
-(set-dispatch-macro-character #\# #\C #'sharp-not-implemented *standard-readtable*)
+(set-dispatch-macro-character #\# #\C #'sharpsign-c *standard-readtable*)
 
 ;; O, o octal rational
-(set-dispatch-macro-character #\# #\O #'sharp-not-implemented *standard-readtable*)
+(set-dispatch-macro-character #\# #\O #'sharpsign-d *standard-readtable*)
 
 ;; P, p pathname
-(set-dispatch-macro-character #\# #\P #'sharp-not-implemented *standard-readtable*)
+(set-dispatch-macro-character #\# #\P #'sharpsign-p *standard-readtable*)
 
 ;; R, r radix-n rational
-(set-dispatch-macro-character #\# #\R #'sharp-not-implemented *standard-readtable*)
+(set-dispatch-macro-character #\# #\R #'sharpsign-r *standard-readtable*)
 
 ;; S, s structure
-(set-dispatch-macro-character #\# #\S #'sharp-not-implemented *standard-readtable*)
+(set-dispatch-macro-character #\# #\S #'sharpsign-s *standard-readtable*)
 
 ;; X, x hexadecimal rational
-(set-dispatch-macro-character #\# #\X #'sharp-not-implemented *standard-readtable*)
+(set-dispatch-macro-character #\# #\X #'sharpsign-x *standard-readtable*)
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
