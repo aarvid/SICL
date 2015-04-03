@@ -45,6 +45,8 @@
   (declare (ignore char))
   (list 'quote (read stream t nil t)))
 
+
+
 (defun double-quote-function (stream char)
   (declare (ignore char))
   (loop with result = (make-array 0
@@ -361,7 +363,10 @@
    ;; has whitespace syntax.
    (%whitespace :initarg :whitespace :reader whitespace)
    ;; A hash table associating characters with macro functions.
-   (%macro-functions :initform (make-hash-table) :reader macro-functions)))
+   (%macro-functions :initform (make-hash-table) :reader macro-functions)
+   ;; A hash table associating dispatch characters (#) with dispatch tables
+   (%macro-dispatch-tables :initform (make-hash-table)
+                           :reader macro-dispatch-tables)))
 
 (defun syntax-type (table char)
   (if (< (char-code char) 128)
@@ -560,6 +565,147 @@
 	(#\, . comma-function)))
 
 (set-macro-character #\# #'sharpsign-function t *standard-readtable*)
+
+
+(defun make-dispatch-macro-character (char &optional (non-terminating-p nil)
+                                                     (readtable *readtable*))
+  (setf (syntax-type readtable char)
+	(if non-terminating-p
+	    'non-terminating-macro-char
+	    'terminating-macro-char))
+  ;; Make sure the character is no longer considered to be
+  ;; a symbol starter. 
+  (setf (aref (decimal-letters readtable) (char-code char)) 0)
+  (let ((dispatch-table (make-hash-table)))
+    (setf (gethash char (macro-dispatch-tables readtable))
+          dispatch-table)  
+    (setf (gethash char (macro-functions readtable))
+          (lambda (stream c)
+            (declare (ignore c))
+            (let ((param nil)
+                  (sub-char))
+              (setf sub-char 
+                    (loop for new-char = (read-char stream nil nil t) 
+                          until (not (digit-char-p new-char) )
+                          do (when (digit-char-p new-char)
+                               (setf param
+                                     (+ (* 10 (or param 0))
+                                        (digit-char-p new-char))))
+                          finally (return new-char)))
+              (let ((fun (gethash sub-char dispatch-table)))
+                (unless (functionp fun)
+                  (error "no dispatch function defined for ~s" sub-char))
+                (funcall fun stream sub-char param))))))
+  t)
+
+(defun  get-dispatch-macro-character (disp-char sub-char
+                                     &optional (readtable *readtable*))
+  (unless (readtablep readtable)
+    (error "not a readtable"))
+  (unless (characterp disp-char)
+    (error "initial dispatch macro character not a character"))
+  (unless (characterp sub-char)
+    (error "second dispatch macro character not a character"))
+  (let ((sub-char (char-upcase sub-char ))
+        (dispatch-table (gethash disp-char (macro-dispatch-tables readtable))))
+    (unless (hash-table-p dispatch-table)
+      (error "~s is not a dispatching macro character" disp-char))
+    (when (digit-char-p sub-char 10)
+      (return-from get-dispatch-macro-character nil))
+    (gethash sub-char dispatch-table)))
+
+(defun set-dispatch-macro-character (disp-char sub-char new-function
+                                     &optional (readtable *readtable*))
+  (unless (characterp disp-char)
+    (error "initial dispatch macro character not a character"))
+  (unless (characterp sub-char)
+    (error "second dispatch macro character not a character"))
+  (unless (or (null new-function) (functionp new-function))
+    (error "new-function is not a function"))
+  (unless (readtablep readtable)
+    (error "not a readtable"))
+  (when (digit-char-p sub-char 10)
+    (error "can not dispatch with a decimal digit."))
+  (let ((sub-char (char-upcase sub-char ))
+        (dispatch-table (gethash disp-char (macro-dispatch-tables readtable))))
+    (unless (hash-table-p dispatch-table)
+      (error "~s is not a dispatching macro character" disp-char))
+    (setf (gethash sub-char dispatch-table) new-function))
+  t)
+
+(defun sharp-illegal (stream sub-char param)
+  (declare (ignore stream param))
+  (error "illegal sharp macro character: ~S" sub-char))
+
+(defun sharp-not-implemented (stream sub-char param)
+  (declare (ignore stream param))
+  (error "sharp macro character not implemented: ~S" sub-char))
+
+(make-dispatch-macro-character #\# t *standard-readtable*)
+(mapc (lambda (c)
+        (set-dispatch-macro-character #\# c #'sharp-illegal *standard-readtable*))
+      '(#\Newline #\Backspace #\Tab #\Linefeed #\Page #\Return #\Space #\< #\)))
+
+;; ' function abbreviation
+(set-dispatch-macro-character #\# #\' #'sharpsign-single-quote-function
+                              *standard-readtable*)
+
+;; ( simple-vector
+(set-dispatch-macro-character #\# #\( #'sharpsign-left-parenthesis
+                              *standard-readtable*)
+
+;; * bit-vector
+(set-dispatch-macro-character #\# #\* #'sharp-not-implemented *standard-readtable*)
+
+;; : uninterned symbol
+(set-dispatch-macro-character #\# #\: #'sharp-not-implemented *standard-readtable*)
+
+;; \ character object
+(set-dispatch-macro-character #\# #\\ #'sharpsign-backslash-function
+                              *standard-readtable*)
+
+;; | balanced comment         
+(set-dispatch-macro-character #\# #\| #'sharp-not-implemented *standard-readtable*)
+
+;; = labels following object
+(set-dispatch-macro-character #\# #\= #'sharp-not-implemented *standard-readtable*)
+
+;; reference to = label
+(set-dispatch-macro-character #\# #\# #'sharp-not-implemented *standard-readtable*)
+
+;; + read-time conditiona
+(set-dispatch-macro-character #\# #\+ #'sharp-not-implemented *standard-readtable*)
+
+;; - read-time conditiona
+(set-dispatch-macro-character #\# #\- #'sharp-not-implemented *standard-readtable*)
+
+;; . read-time evaluation
+(set-dispatch-macro-character #\# #\. #'sharp-not-implemented *standard-readtable*)
+
+;; A, a array
+(set-dispatch-macro-character #\# #\A #'sharp-not-implemented *standard-readtable*)
+
+;; B, b binary rational
+(set-dispatch-macro-character #\# #\B #'sharp-not-implemented *standard-readtable*)
+
+;; C, c complex number
+(set-dispatch-macro-character #\# #\C #'sharp-not-implemented *standard-readtable*)
+
+;; O, o octal rational
+(set-dispatch-macro-character #\# #\O #'sharp-not-implemented *standard-readtable*)
+
+;; P, p pathname
+(set-dispatch-macro-character #\# #\P #'sharp-not-implemented *standard-readtable*)
+
+;; R, r radix-n rational
+(set-dispatch-macro-character #\# #\R #'sharp-not-implemented *standard-readtable*)
+
+;; S, s structure
+(set-dispatch-macro-character #\# #\S #'sharp-not-implemented *standard-readtable*)
+
+;; X, x hexadecimal rational
+(set-dispatch-macro-character #\# #\X #'sharp-not-implemented *standard-readtable*)
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;
@@ -1527,7 +1673,7 @@
             (caar *expression-stack*))))
 
 
-(defparameter *initial-readtable* (copy-readtable *standard-readtable*))
+(defparameter *initial-readtable* (Copy-readtable *standard-readtable*))
 
 (setf *readtable* *initial-readtable*)
 

@@ -15,7 +15,10 @@
                  #:copy-readtable
                  #:char
                  #:get-macro-character
-                 #:set-macro-character))
+                 #:set-macro-character
+                 #:make-dispatch-macro-character
+                 #:get-dispatch-macro-character
+                 #:set-dispatch-macro-character))
   (:export #:read-with-position
            . #1#))
 
